@@ -37,7 +37,8 @@ events {
 http {
     %%TEST_GLOBALS_HTTP%%
 
-    connection_pool_size 128;
+    # gcdn: enlarged ngx_pool_t in fork needs 256 (upstream 128) — https://jira.gcore.lu/browse/CDP-398
+    connection_pool_size 256;
     client_header_buffer_size 128;
 
     server {

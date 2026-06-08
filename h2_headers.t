@@ -45,6 +45,10 @@ http {
         server_name  localhost;
 
         large_client_header_buffers 2 64k;
+        # gcdn: fork keeps the deprecated per-directive HTTP/2 limits
+        # https://jira.gcore.lu/browse/CDN-5918
+        http2_max_field_size 64k;
+        http2_max_header_size 64k;
 
         location / {
             add_header X-Sent-Foo $http_x_foo;
@@ -95,6 +99,8 @@ http {
         server_name  localhost;
 
         large_client_header_buffers 4 512;
+        # gcdn: fork keeps the deprecated http2_max_field_size — https://jira.gcore.lu/browse/CDN-5918
+        http2_max_field_size 512;
     }
 
     server {
@@ -102,6 +108,8 @@ http {
         server_name  localhost;
 
         large_client_header_buffers 1 512;
+        # gcdn: fork keeps the deprecated http2_max_header_size — https://jira.gcore.lu/browse/CDN-5918
+        http2_max_header_size 512;
     }
 
     server {

@@ -256,9 +256,12 @@ like($r, qr/Status: HIT/m, 'first bytes cached - cache status');
 # multiple ranges
 # we want 206, but 200 is also fine
 
+# gcdn: fork returns 206 multipart/byteranges for multi-range over slicing
+# https://jira.gcore.lu/browse/CDP-1869
 $r = get('/cache/t?many', "Range: bytes=3-3,4-4");
-like($r, qr/200 OK/, 'many - 206 partial reply');
-like($r, qr/^0123456789abcdef$/m, 'many - correct content');
+like($r, qr/206 Partial/,'many - 206 partial reply');
+like($r, qr/Content-Type: multipart\/byteranges; boundary=/,'multipart - content type');
+
 
 $r = get('/cache/t?last', "Range: bytes=-10");
 like($r, qr/206 /, 'last bytes - 206 partial reply');
