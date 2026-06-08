@@ -50,6 +50,10 @@ http {
         http2 on;
         http2_body_preread_size 128k;
         large_client_header_buffers 4 32k;
+        # gcdn: fork keeps the deprecated per-directive HTTP/2 limits
+        # https://jira.gcore.lu/browse/CDN-5918
+        http2_max_field_size 32k;
+        http2_max_header_size 32k;
 
         location / {
             grpc_pass grpc://127.0.0.1:8081;

@@ -45,6 +45,8 @@ http {
         server_name  localhost;
 
         keepalive_requests 2;
+        # gcdn: fork keeps the deprecated http2_max_requests — https://jira.gcore.lu/browse/CDN-5918
+        http2_max_requests 2;
 
         location / { }
     }
@@ -54,6 +56,8 @@ http {
         server_name  localhost;
 
         keepalive_timeout 0;
+        # gcdn: fork keeps the deprecated http2_idle_timeout — https://jira.gcore.lu/browse/CDN-5918
+        http2_idle_timeout 1;
 
         location / { }
     }
