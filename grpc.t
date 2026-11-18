@@ -24,7 +24,7 @@ select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
 my $t = Test::Nginx->new()->has(qw/http rewrite http_v2 grpc/)
-	->has(qw/upstream_keepalive/)->plan(147);
+	->has(qw/upstream_keepalive/)->plan(150);
 
 $t->write_file_expand('nginx.conf', <<'EOF');
 
@@ -392,6 +392,19 @@ is($frame->{flags}, 5, 'grpc error - HEADERS flags');
 ($frame) = grep { $_->{type} eq "DATA" } @$frames;
 ok(!$frame, 'grpc error - no DATA frame');
 
+# trailers only with non-zero content-length
+
+TODO: {
+local $TODO = 'not yet' unless $t->has_version('1.31.4');
+
+$f->{http_start}('/SayHello');
+$f->{data}('Hello');
+$frames = $f->{http_err}(cl => 5);
+($frame) = grep { $_->{type} eq "RST_STREAM" } @$frames;
+ok($frame, 'grpc error - trailers only with content-length');
+
+}
+
 # malformed response body length not equal to content-length
 
 $f->{http_start}('/SayHello');
@@ -610,12 +623,17 @@ $f->{http_end}();
 
 # misc tests
 
+TODO: {
+local $TODO = 'not yet' unless $t->has_version('1.31.4');
+
 $frames = $f->{http_start}('/SetHost');
 ($frame) = grep { $_->{type} eq "HEADERS" } @$frames;
-ok(!$frame->{headers}{':authority'}, 'set host - authority');
-is($frame->{headers}{'host'}, 'custom', 'set host - host');
+is($frame->{headers}{':authority'}, 'custom', 'set host - authority');
+ok(!$frame->{headers}{'host'}, 'set host - host');
 $f->{data}('Hello');
 $f->{http_end}();
+
+}
 
 $frames = $f->{http_start}('/SetArgs?f');
 ($frame) = grep { $_->{type} eq "HEADERS" } @$frames;
@@ -690,6 +708,31 @@ ok($frame->{headers}{'grpc-status'}, 'keepalive 3 - grpc error, rst');
 $frames = $f->{http_start}('/KeepAlive', reuse => 1);
 ($frame) = grep { $_->{type} eq "HEADERS" } @$frames;
 ok($frame, 'keepalive 3 - connection reused');
+
+undef $f;
+$f = grpc();
+
+# zero WINDOW_UPDATE increments
+
+TODO: {
+local $TODO = 'not yet' unless $t->has_version('1.31.4');
+
+$f->{http_start}('/');
+$f->{update_sid}(0);
+$frames = $f->{http_end}();
+($frame) = grep { $_->{type} eq "HEADERS" } @$frames;
+is($frame->{headers}{':status'}, 502, 'zero window update - stream');
+
+undef $f;
+$f = grpc();
+
+$f->{http_start}('/');
+$f->{update}(0);
+$frames = $f->{http_end}();
+($frame) = grep { $_->{type} eq "HEADERS" } @$frames;
+is($frame->{headers}{':status'}, 502, 'zero window update - connection');
+
+}
 
 undef $f;
 $f = grpc();
@@ -839,7 +882,8 @@ reused:
 		return $s->read(all => [{ sid => $csid, fin => 1 }]);
 	};
 	$f->{http_err} = sub {
-		$c->new_stream({ headers => [
+		my (%extra) = @_;
+		my $h = [
 			{ name => ':status', value => '200', mode => 0 },
 			{ name => 'content-type', value => 'application/grpc',
 				mode => 1, huff => 1 },
@@ -847,8 +891,14 @@ reused:
 				mode => 2, huff => 1 },
 			{ name => 'grpc-message', value => 'unknown service',
 				mode => 2, huff => 1 },
-		]}, $sid);
+		];
+		push @$h, { name => 'content-length',
+			value => $extra{cl}, mode => 1, huff => 1 }
+				if $extra{cl};
+		$c->new_stream({ headers => $h }, $sid);
 
+		return $s->read(all => [{ type => 'RST_STREAM' }])
+			if $extra{cl};
 		return $s->read(all => [{ fin => 1 }]);
 	};
 	$f->{http_err_rst} = sub {
