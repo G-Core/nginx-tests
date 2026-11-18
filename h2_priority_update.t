@@ -45,6 +45,11 @@ http {
 
         large_client_header_buffers 4 32k;
 
+        # gcdn: fork keeps the deprecated per-directive HTTP/2 limits
+        # https://jira.gcore.lu/browse/CDN-5918
+        http2_max_field_size 64k;
+        http2_max_header_size 64k;
+
         location / { }
 
         location /merge/ {
